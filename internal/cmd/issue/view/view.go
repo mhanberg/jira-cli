@@ -9,6 +9,7 @@ import (
 	"github.com/ankitpokhrel/jira-cli/api"
 	"github.com/ankitpokhrel/jira-cli/internal/cmdutil"
 	tuiView "github.com/ankitpokhrel/jira-cli/internal/view"
+	"github.com/ankitpokhrel/jira-cli/pkg/browser"
 	"github.com/ankitpokhrel/jira-cli/pkg/jira"
 	"github.com/ankitpokhrel/jira-cli/pkg/jira/filter/issue"
 )
@@ -21,12 +22,16 @@ const (
 $ jira issue view ISSUE-1 --comments 5
 
 # Get the raw JSON data
-$ jira issue view ISSUE-1 --raw`
+$ jira issue view ISSUE-1 --raw
+
+# Open the issue in the default web browser
+$ jira issue view ISSUE-1 --web`
 
 	flagRaw      = "raw"
 	flagDebug    = "debug"
 	flagComments = "comments"
 	flagPlain    = "plain"
+	flagWeb      = "web"
 
 	configProject = "project.key"
 	configServer  = "server"
@@ -52,11 +57,20 @@ func NewCmdView() *cobra.Command {
 	cmd.Flags().Uint(flagComments, 1, "Show N comments")
 	cmd.Flags().Bool(flagPlain, false, "Display output in plain mode")
 	cmd.Flags().Bool(flagRaw, false, "Print raw Jira API response")
+	cmd.Flags().BoolP(flagWeb, "w", false, "Open the issue in the default web browser")
 
 	return &cmd
 }
 
 func view(cmd *cobra.Command, args []string) {
+	web, err := cmd.Flags().GetBool(flagWeb)
+	cmdutil.ExitIfError(err)
+
+	if web {
+		viewWeb(args)
+		return
+	}
+
 	raw, err := cmd.Flags().GetBool(flagRaw)
 	cmdutil.ExitIfError(err)
 
@@ -65,6 +79,17 @@ func view(cmd *cobra.Command, args []string) {
 		return
 	}
 	viewPretty(cmd, args)
+}
+
+func viewWeb(args []string) {
+	project := viper.GetString(configProject)
+	server := viper.GetString(configServer)
+
+	key := cmdutil.GetJiraIssueKey(project, args[0])
+	url := cmdutil.GenerateServerBrowseURL(server, key)
+
+	fmt.Println(url)
+	cmdutil.ExitIfError(browser.Browse(url))
 }
 
 func viewRaw(cmd *cobra.Command, args []string) {
