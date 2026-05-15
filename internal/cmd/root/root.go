@@ -24,6 +24,7 @@ import (
 	"github.com/ankitpokhrel/jira-cli/internal/cmd/version"
 	"github.com/ankitpokhrel/jira-cli/internal/cmdutil"
 	jiraConfig "github.com/ankitpokhrel/jira-cli/internal/config"
+	v "github.com/ankitpokhrel/jira-cli/internal/version"
 	"github.com/ankitpokhrel/jira-cli/pkg/jira"
 	"github.com/ankitpokhrel/jira-cli/pkg/netrc"
 
@@ -73,9 +74,10 @@ func init() {
 // NewCmdRoot is a root command.
 func NewCmdRoot() *cobra.Command {
 	cmd := cobra.Command{
-		Use:   "jira <command> <subcommand>",
-		Short: "Interactive Jira CLI",
-		Long:  "Interactive Jira command line.",
+		Use:     "jira <command> <subcommand>",
+		Short:   "Interactive Jira CLI",
+		Long:    "Interactive Jira command line.",
+		Version: v.Version,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
@@ -116,6 +118,7 @@ func NewCmdRoot() *cobra.Command {
 	cmd.PersistentFlags().BoolVar(&debug, "debug", false, "Turn on debug output")
 
 	cmd.SetHelpFunc(helpFunc)
+	cmd.SetVersionTemplate("{{.Version}}\n")
 
 	_ = viper.BindPFlag("config", cmd.PersistentFlags().Lookup("config"))
 	_ = viper.BindPFlag("project.key", cmd.PersistentFlags().Lookup("project"))
