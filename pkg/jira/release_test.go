@@ -68,3 +68,41 @@ func TestReleases(t *testing.T) {
 	_, err = client.Release("1000")
 	assert.Error(t, &ErrUnexpectedResponse{}, err)
 }
+
+func TestGetVersion(t *testing.T) {
+	var unexpectedStatusCode bool
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/rest/api/3/version/10042", r.URL.Path)
+
+		if unexpectedStatusCode {
+			w.WriteHeader(400)
+			return
+		}
+
+		resp, err := os.ReadFile("./testdata/version.json")
+		assert.NoError(t, err)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write(resp)
+	}))
+	defer server.Close()
+
+	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+
+	actual, err := client.GetVersion("10042")
+	assert.NoError(t, err)
+	assert.Equal(t, &ProjectVersion{
+		ID:          "10042",
+		Name:        "v1.2.0",
+		Description: "Q2 release",
+		Released:    true,
+		Archived:    false,
+		ProjectID:   1000,
+	}, actual)
+
+	unexpectedStatusCode = true
+	_, err = client.GetVersion("10042")
+	assert.Error(t, &ErrUnexpectedResponse{}, err)
+}

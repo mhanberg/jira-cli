@@ -108,3 +108,34 @@ func TestBoardsPage(t *testing.T) {
 	assert.Equal(t, 50, actual.MaxResults)
 	assert.Len(t, actual.Boards, 2)
 }
+
+func TestGetBoard(t *testing.T) {
+	var unexpectedStatusCode bool
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/rest/agile/1.0/board/17", r.URL.Path)
+
+		if unexpectedStatusCode {
+			w.WriteHeader(400)
+			return
+		}
+
+		resp, err := os.ReadFile("./testdata/board.json")
+		assert.NoError(t, err)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write(resp)
+	}))
+	defer server.Close()
+
+	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+
+	actual, err := client.GetBoard(17)
+	assert.NoError(t, err)
+	assert.Equal(t, &Board{ID: 17, Name: "Test Board", Type: "scrum"}, actual)
+
+	unexpectedStatusCode = true
+	_, err = client.GetBoard(17)
+	assert.Error(t, &ErrUnexpectedResponse{}, err)
+}

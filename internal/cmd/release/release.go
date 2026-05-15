@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ankitpokhrel/jira-cli/internal/cmd/release/list"
+	"github.com/ankitpokhrel/jira-cli/internal/cmd/release/view"
 )
 
 const helpText = `Release manages Jira Project versions. See available commands below.`
@@ -19,7 +20,7 @@ func NewCmdRelease() *cobra.Command {
 		RunE:        releases,
 	}
 
-	cmd.AddCommand(list.NewCmdList())
+	cmd.AddCommand(list.NewCmdList(), view.NewCmdView())
 
 	return &cmd
 }

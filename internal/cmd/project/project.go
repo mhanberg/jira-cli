@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ankitpokhrel/jira-cli/internal/cmd/project/list"
+	"github.com/ankitpokhrel/jira-cli/internal/cmd/project/view"
 )
 
 const helpText = `Project manages Jira projects. See available commands below.`
@@ -19,7 +20,7 @@ func NewCmdProject() *cobra.Command {
 		RunE:        projects,
 	}
 
-	cmd.AddCommand(list.NewCmdList())
+	cmd.AddCommand(list.NewCmdList(), view.NewCmdView())
 
 	return &cmd
 }

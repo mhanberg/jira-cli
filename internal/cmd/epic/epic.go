@@ -7,6 +7,7 @@ import (
 	"github.com/ankitpokhrel/jira-cli/internal/cmd/epic/create"
 	"github.com/ankitpokhrel/jira-cli/internal/cmd/epic/list"
 	"github.com/ankitpokhrel/jira-cli/internal/cmd/epic/remove"
+	issueview "github.com/ankitpokhrel/jira-cli/internal/cmd/issue/view"
 )
 
 const helpText = `Epic manage epics in a given project. See available commands below.`
@@ -26,8 +27,14 @@ func NewCmdEpic() *cobra.Command {
 	cc := create.NewCmdCreate()
 	ac := add.NewCmdAdd()
 	rc := remove.NewCmdRemove()
+	vc := issueview.NewCmdView()
+	vc.Use = "view EPIC-KEY"
+	vc.Short = "View displays contents of an epic"
+	vc.Annotations = map[string]string{
+		"help:args": "EPIC-KEY\tEpic key, eg: PROJ-1",
+	}
 
-	cmd.AddCommand(lc, cc, ac, rc)
+	cmd.AddCommand(lc, cc, ac, rc, vc)
 
 	list.SetFlags(lc)
 	create.SetFlags(cc)

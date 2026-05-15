@@ -3,6 +3,7 @@ package jira
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -33,4 +34,26 @@ func (c *Client) Project() ([]*Project, error) {
 	err = json.NewDecoder(res.Body).Decode(&out)
 
 	return out, err
+}
+
+// GetProject fetches a single project by key or id.
+func (c *Client) GetProject(keyOrID string) (*Project, error) {
+	res, err := c.GetV2(context.Background(), fmt.Sprintf("/project/%s?expand=lead", keyOrID), nil)
+	if err != nil {
+		return nil, err
+	}
+	if res == nil {
+		return nil, ErrEmptyResponse
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, formatUnexpectedResponse(res)
+	}
+
+	var out Project
+	if err = json.NewDecoder(res.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }

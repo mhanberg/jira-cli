@@ -42,6 +42,28 @@ func (c *Client) BoardsPage(project, boardType string, startAt, maxResults int) 
 	return c.board(path)
 }
 
+// GetBoard fetches a single board by id.
+func (c *Client) GetBoard(boardID int) (*Board, error) {
+	res, err := c.GetV1(context.Background(), fmt.Sprintf("/board/%d", boardID), nil)
+	if err != nil {
+		return nil, err
+	}
+	if res == nil {
+		return nil, ErrEmptyResponse
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, formatUnexpectedResponse(res)
+	}
+
+	var out Board
+	if err = json.NewDecoder(res.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // BoardSearch fetches boards with the given name in a project.
 func (c *Client) BoardSearch(project, name string) (*BoardResult, error) {
 	path := fmt.Sprintf("/board?projectKeyOrId=%s&name=%s", project, name)
