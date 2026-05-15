@@ -53,19 +53,30 @@ func ExitIfError(err error) {
 	os.Exit(1)
 }
 
-// Info displays spinner.
+// Info displays spinner. The spinner is suppressed when stdout is not a TTY
+// (e.g. piped to another command or a file) or when the terminal is dumb, so
+// that scripted/automated callers don't get progress noise.
 func Info(msg string) *spinner.Spinner {
 	const refreshRate = 100 * time.Millisecond
+
+	quiet := tui.IsNotTTY() || tui.IsDumbTerminal()
+
+	writer := io.Writer(color.Error)
+	if quiet {
+		writer = io.Discard
+	}
 
 	s := spinner.New(
 		spinner.CharSets[14],
 		refreshRate,
 		spinner.WithSuffix(" "+msg),
 		spinner.WithHiddenCursor(true),
-		spinner.WithWriter(color.Error),
+		spinner.WithWriter(writer),
 	)
-	s.Start()
 
+	if !quiet {
+		s.Start()
+	}
 	return s
 }
 
