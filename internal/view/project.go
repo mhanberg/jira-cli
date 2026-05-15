@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"text/tabwriter"
 
 	"github.com/ankitpokhrel/jira-cli/pkg/jira"
@@ -15,9 +16,13 @@ type ProjectOption func(*Project)
 
 // Project is a project view.
 type Project struct {
-	data   []*jira.Project
-	writer io.Writer
-	buf    *bytes.Buffer
+	data      []*jira.Project
+	writer    io.Writer
+	buf       *bytes.Buffer
+	plain     bool
+	noHeaders bool
+	csv       bool
+	delimiter string
 }
 
 // NewProject initializes a project.
@@ -41,21 +46,94 @@ func WithProjectWriter(w io.Writer) ProjectOption {
 	}
 }
 
+// WithProjectPlain toggles plain output (no interactive pager).
+func WithProjectPlain(v bool) ProjectOption {
+	return func(p *Project) {
+		p.plain = v
+	}
+}
+
+// WithProjectNoHeaders skips the header row.
+func WithProjectNoHeaders(v bool) ProjectOption {
+	return func(p *Project) {
+		p.noHeaders = v
+	}
+}
+
+// WithProjectCSV emits CSV output.
+func WithProjectCSV(v bool) ProjectOption {
+	return func(p *Project) {
+		p.csv = v
+	}
+}
+
+// WithProjectDelimiter sets the column delimiter in plain mode. Default is "\t".
+func WithProjectDelimiter(d string) ProjectOption {
+	return func(p *Project) {
+		p.delimiter = d
+	}
+}
+
 // Render renders the project view.
 func (p Project) Render() error {
-	p.printHeader()
+	data := p.tableData()
 
-	for _, d := range p.data {
-		_, _ = fmt.Fprintf(p.writer, "%s\t%s\t%s\t%s\n", d.Key, prepareTitle(d.Name), d.Type, d.Lead.Name)
+	if p.csv {
+		return renderCSV(p.outputWriter(), data)
 	}
-	if _, ok := p.writer.(*tabwriter.Writer); ok {
-		err := p.writer.(*tabwriter.Writer).Flush()
-		if err != nil {
+
+	delim := p.delimiter
+	if delim == "" {
+		delim = "\t"
+	}
+	if p.plain && delim != "\t" {
+		return renderPlain(p.outputWriter(), data, delim)
+	}
+
+	for _, row := range data {
+		for i, cell := range row {
+			_, _ = fmt.Fprint(p.writer, cell)
+			if i != len(row)-1 {
+				_, _ = fmt.Fprint(p.writer, "\t")
+			}
+		}
+		_, _ = fmt.Fprintln(p.writer)
+	}
+	if tw, ok := p.writer.(*tabwriter.Writer); ok {
+		if err := tw.Flush(); err != nil {
 			return err
 		}
 	}
 
+	if _, ok := p.writer.(*tabwriter.Writer); !ok {
+		// Custom writer (used in tests) — content already there.
+		return nil
+	}
+	if p.plain {
+		_, err := fmt.Fprint(os.Stdout, p.buf.String())
+		return err
+	}
 	return tui.PagerOut(p.buf.String())
+}
+
+func (p Project) tableData() tui.TableData {
+	var data tui.TableData
+	if !p.noHeaders {
+		data = append(data, p.header())
+	}
+	for _, d := range p.data {
+		data = append(data, []string{d.Key, prepareTitle(d.Name), d.Type, d.Lead.Name})
+	}
+	return data
+}
+
+// outputWriter returns where csv/non-tab-delimited output should go. When a
+// custom writer is injected (tests), use it; otherwise write to stdout.
+func (p Project) outputWriter() io.Writer {
+	if _, isTab := p.writer.(*tabwriter.Writer); isTab {
+		return os.Stdout
+	}
+	return p.writer
 }
 
 func (p Project) header() []string {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"text/tabwriter"
 
 	"github.com/ankitpokhrel/jira-cli/pkg/jira"
@@ -15,9 +16,13 @@ type BoardOption func(*Board)
 
 // Board is a board view.
 type Board struct {
-	data   []*jira.Board
-	writer io.Writer
-	buf    *bytes.Buffer
+	data      []*jira.Board
+	writer    io.Writer
+	buf       *bytes.Buffer
+	plain     bool
+	noHeaders bool
+	csv       bool
+	delimiter string
 }
 
 // NewBoard initializes a board.
@@ -41,21 +46,91 @@ func WithBoardWriter(w io.Writer) BoardOption {
 	}
 }
 
+// WithBoardPlain toggles plain output (no interactive pager).
+func WithBoardPlain(v bool) BoardOption {
+	return func(b *Board) {
+		b.plain = v
+	}
+}
+
+// WithBoardNoHeaders skips the header row.
+func WithBoardNoHeaders(v bool) BoardOption {
+	return func(b *Board) {
+		b.noHeaders = v
+	}
+}
+
+// WithBoardCSV emits CSV output.
+func WithBoardCSV(v bool) BoardOption {
+	return func(b *Board) {
+		b.csv = v
+	}
+}
+
+// WithBoardDelimiter sets the column delimiter in plain mode. Default is "\t".
+func WithBoardDelimiter(d string) BoardOption {
+	return func(b *Board) {
+		b.delimiter = d
+	}
+}
+
 // Render renders the board view.
 func (b Board) Render() error {
-	b.printHeader()
+	data := b.tableData()
 
-	for _, d := range b.data {
-		_, _ = fmt.Fprintf(b.writer, "%d\t%s\t%s\n", d.ID, prepareTitle(d.Name), d.Type)
+	if b.csv {
+		return renderCSV(b.outputWriter(), data)
 	}
-	if _, ok := b.writer.(*tabwriter.Writer); ok {
-		err := b.writer.(*tabwriter.Writer).Flush()
-		if err != nil {
+
+	delim := b.delimiter
+	if delim == "" {
+		delim = "\t"
+	}
+	if b.plain && delim != "\t" {
+		return renderPlain(b.outputWriter(), data, delim)
+	}
+
+	for _, row := range data {
+		for i, cell := range row {
+			_, _ = fmt.Fprint(b.writer, cell)
+			if i != len(row)-1 {
+				_, _ = fmt.Fprint(b.writer, "\t")
+			}
+		}
+		_, _ = fmt.Fprintln(b.writer)
+	}
+	if tw, ok := b.writer.(*tabwriter.Writer); ok {
+		if err := tw.Flush(); err != nil {
 			return err
 		}
 	}
 
+	if _, ok := b.writer.(*tabwriter.Writer); !ok {
+		return nil
+	}
+	if b.plain {
+		_, err := fmt.Fprint(os.Stdout, b.buf.String())
+		return err
+	}
 	return tui.PagerOut(b.buf.String())
+}
+
+func (b Board) tableData() tui.TableData {
+	var data tui.TableData
+	if !b.noHeaders {
+		data = append(data, b.header())
+	}
+	for _, d := range b.data {
+		data = append(data, []string{fmt.Sprintf("%d", d.ID), prepareTitle(d.Name), d.Type})
+	}
+	return data
+}
+
+func (b Board) outputWriter() io.Writer {
+	if _, isTab := b.writer.(*tabwriter.Writer); isTab {
+		return os.Stdout
+	}
+	return b.writer
 }
 
 func (b Board) header() []string {
