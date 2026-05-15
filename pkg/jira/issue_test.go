@@ -745,3 +745,42 @@ func TestWatchIssue(t *testing.T) {
 	err = client.WatchIssueV2("TEST-1", "a12b3")
 	assert.Error(t, &ErrUnexpectedResponse{}, err)
 }
+
+func TestIssueWorklogs(t *testing.T) {
+	var unexpectedStatusCode bool
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/rest/api/2/issue/TEST-1/worklog", r.URL.Path)
+
+		if unexpectedStatusCode {
+			w.WriteHeader(400)
+			return
+		}
+
+		resp, err := os.ReadFile("./testdata/worklogs.json")
+		assert.NoError(t, err)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write(resp)
+	}))
+	defer server.Close()
+
+	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+
+	actual, err := client.IssueWorklogs("TEST-1")
+	assert.NoError(t, err)
+	assert.Equal(t, 2, actual.Total)
+	assert.Len(t, actual.Worklogs, 2)
+
+	first := actual.Worklogs[0]
+	assert.Equal(t, "100001", first.ID)
+	assert.Equal(t, "1h", first.TimeSpent)
+	assert.Equal(t, 3600, first.TimeSpentSeconds)
+	assert.Equal(t, "Initial investigation", first.Comment)
+	assert.Equal(t, "Person A", first.Author.DisplayName)
+
+	unexpectedStatusCode = true
+	_, err = client.IssueWorklogs("TEST-1")
+	assert.Error(t, &ErrUnexpectedResponse{}, err)
+}
