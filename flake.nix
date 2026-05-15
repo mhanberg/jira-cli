@@ -18,7 +18,10 @@
       perSystem = { pkgs, lib, ... }: {
         packages.default = pkgs.buildGoModule rec {
           pname = "jira-cli";
-          version = "0.0.0-dev";
+          # Latest upstream tag this fork is based on, with -dev suffix to
+          # mark Nix-built binaries as unreleased. Bump alongside any tag
+          # update so `jira --version` reports the right base version.
+          version = "1.7.0-dev";
 
           src = lib.cleanSourceWith {
             src = ./.;
