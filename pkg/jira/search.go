@@ -17,7 +17,17 @@ type SearchResult struct {
 
 // Search searches for issues using v3 version of the Jira GET /search endpoint.
 func (c *Client) Search(jql string, limit uint) (*SearchResult, error) {
+	return c.SearchPage(jql, limit, "")
+}
+
+// SearchPage searches for issues using v3 with an optional pagination token.
+// Pass an empty token to request the first page; pass NextPageToken from a
+// prior response to fetch subsequent pages.
+func (c *Client) SearchPage(jql string, limit uint, nextPageToken string) (*SearchResult, error) {
 	path := fmt.Sprintf("/search/jql?jql=%s&maxResults=%d&fields=*all", url.QueryEscape(jql), limit)
+	if nextPageToken != "" {
+		path += "&nextPageToken=" + url.QueryEscape(nextPageToken)
+	}
 	return c.search(path, apiVersion3)
 }
 

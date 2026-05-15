@@ -31,6 +31,17 @@ func (c *Client) Boards(project, boardType string) (*BoardResult, error) {
 	return c.board(path)
 }
 
+// BoardsPage gets a single page of boards using the startAt/maxResults
+// pagination parameters supported by the agile /board endpoint.
+func (c *Client) BoardsPage(project, boardType string, startAt, maxResults int) (*BoardResult, error) {
+	path := fmt.Sprintf("/board?projectKeyOrId=%s&startAt=%d&maxResults=%d", project, startAt, maxResults)
+	if boardType != "" {
+		path += fmt.Sprintf("&type=%s", boardType)
+	}
+
+	return c.board(path)
+}
+
 // BoardSearch fetches boards with the given name in a project.
 func (c *Client) BoardSearch(project, name string) (*BoardResult, error) {
 	path := fmt.Sprintf("/board?projectKeyOrId=%s&name=%s", project, name)

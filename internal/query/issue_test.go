@@ -101,9 +101,6 @@ func (tfp *issueFlagParser) GetString(name string) (string, error) {
 		}
 		return "", nil
 	}
-	if name == "paginate" {
-		return "", nil
-	}
 	return "test", nil
 }
 

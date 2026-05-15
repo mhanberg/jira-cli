@@ -27,6 +27,7 @@ func NewCmdList() *cobra.Command {
 	cmd.Flags().String("delimiter", "\t", "Custom delimiter for columns in plain mode. Works only with --plain")
 	cmd.Flags().Bool("raw", false, "Print raw JSON output")
 	cmd.Flags().Bool("csv", false, "Print output in CSV format")
+	cmd.Flags().Bool("paginate", false, "No-op: the /project endpoint already returns every project you can see. Kept for flag uniformity across list commands.")
 
 	return cmd
 }

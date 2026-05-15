@@ -140,3 +140,51 @@ func TestSearch(t *testing.T) {
 	_, err = client.SearchV2("project=TEST", 0, 100)
 	assert.Error(t, &ErrUnexpectedResponse{}, err)
 }
+
+func TestSearchPage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/rest/api/3/search/jql", r.URL.Path)
+		assert.Equal(t, url.Values{
+			"jql":           []string{"project=TEST"},
+			"fields":        []string{"*all"},
+			"maxResults":    []string{"50"},
+			"nextPageToken": []string{"abc123"},
+		}, r.URL.Query())
+
+		resp, err := os.ReadFile("./testdata/search.json")
+		assert.NoError(t, err)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write(resp)
+	}))
+	defer server.Close()
+
+	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+
+	_, err := client.SearchPage("project=TEST", 50, "abc123")
+	assert.NoError(t, err)
+}
+
+func TestSearchPageNoToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/rest/api/3/search/jql", r.URL.Path)
+		qs := r.URL.Query()
+		// Empty token must NOT add the parameter to the URL.
+		_, hasToken := qs["nextPageToken"]
+		assert.False(t, hasToken, "nextPageToken should not be sent when empty")
+
+		resp, err := os.ReadFile("./testdata/search.json")
+		assert.NoError(t, err)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write(resp)
+	}))
+	defer server.Close()
+
+	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+
+	_, err := client.SearchPage("project=TEST", 50, "")
+	assert.NoError(t, err)
+}

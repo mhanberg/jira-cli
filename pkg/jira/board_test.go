@@ -81,3 +81,30 @@ func TestBoards(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, expected, actual)
 }
+
+func TestBoardsPage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/rest/agile/1.0/board", r.URL.Path)
+		assert.Equal(t, url.Values{
+			"projectKeyOrId": []string{"TEST"},
+			"startAt":        []string{"50"},
+			"maxResults":     []string{"25"},
+			"type":           []string{"scrum"},
+		}, r.URL.Query())
+
+		resp, err := os.ReadFile("./testdata/boards.json")
+		assert.NoError(t, err)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write(resp)
+	}))
+	defer server.Close()
+
+	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+
+	actual, err := client.BoardsPage("TEST", "scrum", 50, 25)
+	assert.NoError(t, err)
+	assert.Equal(t, 50, actual.MaxResults)
+	assert.Len(t, actual.Boards, 2)
+}

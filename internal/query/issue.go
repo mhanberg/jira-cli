@@ -2,7 +2,6 @@ package query
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -188,6 +187,7 @@ type IssueParams struct {
 	Reverse       bool
 	From          uint
 	Limit         uint
+	FetchAll      bool
 	JQL           string
 
 	debug bool
@@ -196,11 +196,11 @@ type IssueParams struct {
 func (ip *IssueParams) init(flags FlagParser) error {
 	var err error
 
-	boolParams := []string{"history", "watching", "reverse", "debug"}
+	boolParams := []string{"history", "watching", "reverse", "debug", "paginate"}
 	stringParams := []string{
 		"resolution", "type", "parent", "priority", "reporter", "assignee", "component",
 		"created", "created-after", "created-before", "updated", "updated-after", "updated-before",
-		"jql", "order-by", "paginate",
+		"jql", "order-by",
 	}
 
 	boolParamsMap := make(map[string]bool)
@@ -227,21 +227,12 @@ func (ip *IssueParams) init(flags FlagParser) error {
 		return err
 	}
 
-	paginate, err := flags.GetString("paginate")
-	if err != nil {
-		return err
-	}
-	from, limit, err := getPaginateParams(paginate)
-	if err != nil {
-		return err
-	}
-
 	ip.setBoolParams(boolParamsMap)
 	ip.setStringParams(stringParamsMap)
 	ip.Labels = labels
 	ip.Status = status
-	ip.From = from
-	ip.Limit = limit
+	ip.From = 0
+	ip.Limit = defaultLimit
 
 	return nil
 }
@@ -257,6 +248,8 @@ func (ip *IssueParams) setBoolParams(paramsMap map[string]bool) {
 			ip.Reverse = v
 		case "debug":
 			ip.debug = v
+		case "paginate":
+			ip.FetchAll = v
 		}
 	}
 }
@@ -318,54 +311,3 @@ func addDay(dt time.Time, format string) string {
 	return dt.AddDate(0, 0, 1).Format(format)
 }
 
-func getPaginateParams(paginate string) (uint, uint, error) {
-	var (
-		err         error
-		from, limit int
-
-		errInvalidPaginateArg = fmt.Errorf(
-			"invalid argument for paginate: must be a positive integer in format <from>:<limit>, where <from> is optional",
-		)
-		errOutOfBounds = fmt.Errorf(
-			"invalid argument for paginate: Format <from>:<limit>, where <from> is optional and "+
-				"<limit> must be between %d and %d (inclusive)", 1, defaultLimit,
-		)
-	)
-
-	paginate = strings.TrimSpace(paginate)
-
-	if paginate == "" {
-		return 0, defaultLimit, nil
-	}
-
-	if !strings.Contains(paginate, ":") {
-		limit, err = strconv.Atoi(paginate)
-		if err != nil {
-			return 0, 0, errInvalidPaginateArg
-		}
-	} else {
-		pieces := strings.Split(paginate, ":")
-		if len(pieces) != 2 {
-			return 0, 0, errInvalidPaginateArg
-		}
-
-		from, err = strconv.Atoi(pieces[0])
-		if err != nil {
-			return 0, 0, errInvalidPaginateArg
-		}
-
-		limit, err = strconv.Atoi(pieces[1])
-		if err != nil {
-			return 0, 0, errInvalidPaginateArg
-		}
-	}
-
-	if from < 0 || limit <= 0 {
-		return 0, 0, errOutOfBounds
-	}
-	if limit > defaultLimit {
-		return 0, 0, errOutOfBounds
-	}
-
-	return uint(from), uint(limit), nil
-}

@@ -104,7 +104,13 @@ func singleSprintView(sprintQuery *query.Sprint, flags query.FlagParser, boardID
 		if sprintQuery.Params().ShowAllIssues {
 			q.Params().JQL = "project IS NOT EMPTY"
 		}
-		resp, err := client.SprintIssues(sprintID, q.Get(), q.Params().From, q.Params().Limit)
+
+		var resp *jira.SearchResult
+		if q.Params().FetchAll {
+			resp, err = api.ProxySprintIssuesAll(client, sprintID, q.Get())
+		} else {
+			resp, err = client.SprintIssues(sprintID, q.Get(), q.Params().From, q.Params().Limit)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -195,6 +201,20 @@ func sprintExplorerView(sprintQuery *query.Sprint, flags query.FlagParser, board
 		s := cmdutil.Info("Fetching sprints...")
 		defer s.Stop()
 
+		if sprintQuery.Params().FetchAll {
+			resp, err := api.ProxySprintsAll(client, boardID, sprintQuery.Get())
+			if err != nil {
+				return nil
+			}
+			for _, sp := range resp.Sprints {
+				sp.BoardID = boardID
+			}
+			// Reverse so newest sprints come first, matching SprintsInBoards.
+			for i, j := 0, len(resp.Sprints)-1; i < j; i, j = i+1, j-1 {
+				resp.Sprints[i], resp.Sprints[j] = resp.Sprints[j], resp.Sprints[i]
+			}
+			return resp.Sprints
+		}
 		return client.SprintsInBoards([]int{boardID}, sprintQuery.Get(), numSprints)
 	}()
 	if len(sprints) == 0 {

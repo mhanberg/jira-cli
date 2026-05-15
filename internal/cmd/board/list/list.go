@@ -28,6 +28,7 @@ func NewCmdList() *cobra.Command {
 	cmd.Flags().String("delimiter", "\t", "Custom delimiter for columns in plain mode. Works only with --plain")
 	cmd.Flags().Bool("raw", false, "Print raw JSON output")
 	cmd.Flags().Bool("csv", false, "Print output in CSV format")
+	cmd.Flags().Bool("paginate", false, "Fetch all boards, paginating internally. Without this flag, only the first page (Jira default ~50) is returned.")
 
 	return cmd
 }
@@ -54,11 +55,22 @@ func List(cmd *cobra.Command, _ []string) {
 	csvOut, err := cmd.Flags().GetBool("csv")
 	cmdutil.ExitIfError(err)
 
+	paginate, err := cmd.Flags().GetBool("paginate")
+	cmdutil.ExitIfError(err)
+
 	boards, total, err := func() ([]*jira.Board, int, error) {
 		s := cmdutil.Info(fmt.Sprintf("Fetching boards in project %s...", project))
 		defer s.Stop()
 
-		resp, err := api.DefaultClient(debug).Boards(project, jira.BoardTypeAll)
+		client := api.DefaultClient(debug)
+		if paginate {
+			resp, err := api.ProxyBoardsAll(client, project, jira.BoardTypeAll)
+			if err != nil {
+				return nil, 0, err
+			}
+			return resp.Boards, len(resp.Boards), nil
+		}
+		resp, err := client.Boards(project, jira.BoardTypeAll)
 		if err != nil {
 			return nil, 0, err
 		}

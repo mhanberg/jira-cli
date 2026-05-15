@@ -32,11 +32,8 @@ in plain view. A --no-truncate flag will display all available fields in plain m
 
 	examples = `$ jira issue list
 
-# Limit list to 20 items
-$ jira issue list --paginate 20
-
-# Get 50 items starting from 10
-$ jira issue list --paginate 10:50
+# Fetch every matching issue (walks all pages)
+$ jira issue list --paginate
 
 # Search for issues containing specific text
 $ jira issue list "Feature Request"
@@ -118,7 +115,13 @@ func loadList(cmd *cobra.Command, args []string) {
 			return nil, err
 		}
 
-		resp, err := api.ProxySearch(api.DefaultClient(debug), q.Get(), q.Params().From, q.Params().Limit)
+		client := api.DefaultClient(debug)
+		var resp *jira.SearchResult
+		if q.Params().FetchAll {
+			resp, err = api.ProxySearchAll(client, q.Get(), q.Params().Limit)
+		} else {
+			resp, err = api.ProxySearch(client, q.Get(), q.Params().From, q.Params().Limit)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -238,7 +241,7 @@ func SetFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP("jql", "q", "", "Run a raw JQL query in a given project context")
 	cmd.Flags().String("order-by", "created", "Field to order the list with")
 	cmd.Flags().Bool("reverse", false, "Reverse the display order (default \"DESC\")")
-	cmd.Flags().String("paginate", "0:100", "Paginate the result. Max 100 at a time, format: <from>:<limit> where <from> is optional")
+	cmd.Flags().Bool("paginate", false, "Fetch all results, paginating internally. Without this flag, only the first 100 results are returned.")
 	cmd.Flags().Bool("plain", false, "Display output in plain mode")
 	cmd.Flags().Bool("no-headers", false, "Don't display table headers in plain mode. Works only with --plain")
 	cmd.Flags().Bool("no-truncate", false, "Show all available columns in plain mode. Works only with --plain")

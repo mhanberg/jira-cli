@@ -60,6 +60,7 @@ type SprintParams struct {
 	Next          bool
 	From          uint
 	Limit         uint
+	FetchAll      bool
 	ShowAllIssues bool
 
 	debug bool
@@ -96,16 +97,13 @@ func (sp *SprintParams) init(flags FlagParser) error {
 	}
 	sp.ShowAllIssues = showAll
 
-	paginate, err := flags.GetString("paginate")
+	paginate, err := flags.GetBool("paginate")
 	if err != nil {
 		return err
 	}
-	from, limit, err := getPaginateParams(paginate)
-	if err != nil {
-		return err
-	}
-	sp.From = from
-	sp.Limit = limit
+	sp.FetchAll = paginate
+	sp.From = 0
+	sp.Limit = defaultLimit
 
 	debug, err := flags.GetBool("debug")
 	if err != nil {

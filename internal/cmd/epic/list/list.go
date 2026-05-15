@@ -106,9 +106,17 @@ func singleEpicView(flags query.FlagParser, key, project, projectType, server st
 			q.Params().Parent = key
 			q.Params().IssueType = ""
 
-			resp, err = client.Search(q.Get(), q.Params().Limit)
+			if q.Params().FetchAll {
+				resp, err = api.ProxySearchAll(client, q.Get(), q.Params().Limit)
+			} else {
+				resp, err = client.Search(q.Get(), q.Params().Limit)
+			}
 		} else {
-			resp, err = client.EpicIssues(key, q.Get(), q.Params().From, q.Params().Limit)
+			if q.Params().FetchAll {
+				resp, err = api.ProxyEpicIssuesAll(client, key, q.Get())
+			} else {
+				resp, err = client.EpicIssues(key, q.Get(), q.Params().From, q.Params().Limit)
+			}
 		}
 
 		if err != nil {
@@ -181,7 +189,13 @@ func epicExplorerView(cmd *cobra.Command, flags query.FlagParser, project, proje
 		s := cmdutil.Info("Fetching epics...")
 		defer s.Stop()
 
-		resp, err := api.ProxySearch(client, q.Get(), q.Params().From, q.Params().Limit)
+		var resp *jira.SearchResult
+		var err error
+		if q.Params().FetchAll {
+			resp, err = api.ProxySearchAll(client, q.Get(), q.Params().Limit)
+		} else {
+			resp, err = api.ProxySearch(client, q.Get(), q.Params().From, q.Params().Limit)
+		}
 		if err != nil {
 			return nil, err
 		}
